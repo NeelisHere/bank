@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Make Payment</title>
+
+    <!-- Razorpay Checkout -->
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+</head>
+
+<body>
+
+<h2>Make Payment</h2>
+
+<form id="paymentForm">
+
+    <label for="accountNumber">Receiver Account Number:</label>
+    <input
+        type="text"
+        id="accountNumber"
+        name="accountNumber"
+        value="935006034670194"
+        required
+    >
+
+    <br><br>
+
+    <label for="amount">Amount (INR):</label>
+    <input
+        type="number"
+        id="amount"
+        name="amount"
+        min="1"
+        step="0.01"
+        value="10"
+        required
+    >
+
+    <br><br>
+
+    <label for="description">Description:</label>
+    <input
+        type="text"
+        id="description"
+        name="description"
+        value="Payment"
+        required
+    >
+
+    <br><br>
+
+    <button type="submit" id="payButton">
+        Pay Now
+    </button>
+
+</form>
+
+<script>
+
+    const paymentForm = document.getElementById("paymentForm");
+    const payButton = document.getElementById("payButton");
+
+    paymentForm.addEventListener("submit", async function (event) {
+
+        event.preventDefault();
+
+        const accountNumber =
+            document.getElementById("accountNumber").value;
+
+        const amount =
+            Number(document.getElementById("amount").value);
+
+        const description =
+            document.getElementById("description").value;
+
+        payButton.disabled = true;
+        payButton.innerText = "Creating Order...";
+
+        try {
+
+            // ---------------------------------------------------------
+            // 1. Create order in your backend
+            // ---------------------------------------------------------
+
+            const response = await fetch(
+                "http://localhost:8085/api/v1/payments/create-order",
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+
+                    body: JSON.stringify({
+                        accountNumber: accountNumber,
+                        amount: amount,
+                        description: description
+                    })
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error(
+                    "Create order failed: HTTP " + response.status
+                );
+            }
+
+            const order = await response.json();
+
+            console.log("Backend create-order response:", order);
+
+
+            // ---------------------------------------------------------
+            // 2. Open Razorpay Checkout
+            // ---------------------------------------------------------
+
+            const options = {
+
+                key: order.razorpayKeyId,
+
+                amount: order.amount * 100,
+
+                currency: order.currency,
+
+                name: "My Payment App",
+
+                description: description,
+
+                order_id: order.razorpayOrderId,
+
+                handler: function (razorpayResponse) {
+
+                    console.log(
+                        "Razorpay payment successful:",
+                        razorpayResponse
+                    );
+
+                    /*
+                     Example:
+
+                     {
+                         razorpay_payment_id: "...",
+                         razorpay_order_id: "...",
+                         razorpay_signature: "..."
+                     }
+                    */
+
+                    alert(
+                        "Payment successful!\n\n" +
+                        "Payment ID: " +
+                        razorpayResponse.razorpay_payment_id
+                    );
+
+                    /*
+                     IMPORTANT:
+
+                     In a real application, send this response
+                     to your backend for signature verification.
+
+                     Example:
+
+                     fetch("/api/v1/payments/verify", {
+                         method: "POST",
+                         headers: {
+                             "Content-Type": "application/json"
+                         },
+                         body: JSON.stringify({
+                             paymentId: order.paymentId,
+                             razorpayPaymentId:
+                                 razorpayResponse.razorpay_payment_id,
+                             razorpayOrderId:
+                                 razorpayResponse.razorpay_order_id,
+                             razorpaySignature:
+                                 razorpayResponse.razorpay_signature
+                         })
+                     });
+                    */
+                },
+
+                prefill: {
+                    name: "",
+                    email: "",
+                    contact: ""
+                },
+
+                notes: {
+                    paymentId: order.paymentId,
+                    receiverAccountNumber: accountNumber
+                },
+
+                theme: {
+                    color: "#3399cc"
+                },
+
+                modal: {
+                    ondismiss: function () {
+                        console.log("Razorpay Checkout closed");
+                        payButton.disabled = false;
+                        payButton.innerText = "Pay Now";
+                    }
+                }
+            };
+
+
+            // Create Razorpay Checkout instance
+            const razorpay = new Razorpay(options);
+
+            razorpay.on("payment.failed", function (response) {
+
+                console.error(
+                    "Razorpay payment failed:",
+                    response.error
+                );
+
+                alert(
+                    "Payment failed: " +
+                    response.error.description
+                );
+
+                payButton.disabled = false;
+                payButton.innerText = "Pay Now";
+            });
+
+            payButton.innerText = "Opening Razorpay...";
+
+            razorpay.open();
+
+        } catch (error) {
+
+            console.error("Payment error:", error);
+
+            alert(
+                "Unable to create payment order.\n\n" +
+                error.message
+            );
+
+            payButton.disabled = false;
+            payButton.innerText = "Pay Now";
+        }
+
+    });
+
+</script>
+
+</body>
+</html>
