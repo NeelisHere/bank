@@ -36,7 +36,7 @@ jobs:
           docker build \
             -t ${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }} \
             -t ${{ env.IMAGE_NAME }}:latest \
-            .
+            ./payment-service
 
       - name: Push Docker image
         run: |
