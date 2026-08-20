@@ -36,7 +36,8 @@ jobs:
           mvn clean package \
             -pl payment-service \
             -am \
-            -DskipTests
+            -Dmaven.test.skip=true
+# Dmaven.test.skip=true -> to skip tests while both compile/run-time, -DskipTests only prevents the runtime test
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
