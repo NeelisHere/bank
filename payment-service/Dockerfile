@@ -1,33 +1,28 @@
-# Stage 1: Build
 FROM maven:3.9-eclipse-temurin-21 AS build
 
 WORKDIR /app
 
-# Copy Maven files first for better Docker layer caching
 COPY pom.xml .
+COPY payment-service/pom.xml payment-service/pom.xml
+
 COPY .mvn .mvn
 COPY mvnw .
 
 RUN chmod +x mvnw
 
-# Download dependencies
-RUN ./mvnw dependency:go-offline
+RUN ./mvnw -pl payment-service -am dependency:go-offline
 
-# Copy source code
-COPY src src
+COPY payment-service payment-service
 
-# Build the application
-RUN ./mvnw clean package -DskipTests
+RUN ./mvnw -pl payment-service -am clean package -DskipTests
 
 
-# Stage 2: Runtime
 FROM eclipse-temurin:21-jre
 
 WORKDIR /app
 
-# Copy the generated JAR from the build stage
-COPY --from=build /app/target/*.jar app.jar
+COPY --from=build /app/payment-service/target/*.jar app.jar
 
-EXPOSE 8085
+EXPOSE 8080
 
 ENTRYPOINT ["java", "-jar", "app.jar"]
